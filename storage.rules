@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isEmailAuthenticated() {
+      return request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    function isOwner(userId) {
+      return isEmailAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isOwnProfileImage(fileName) {
+      return isEmailAuthenticated()
+          && fileName == request.auth.uid + '.jpg';
+    }
+
+    function isValidImage() {
+      return request.resource != null
+          && request.resource.size <= 10 * 1024 * 1024
+          && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    match /covers/{userId}/{fileName} {
+      allow read: if isEmailAuthenticated();
+      allow create, update: if isOwner(userId) && isValidImage();
+      allow delete: if isOwner(userId);
+    }
+
+    match /covers/{legacyFileName} {
+      allow read: if isEmailAuthenticated();
+      allow write: if false;
+    }
+
+    match /profile_images/{fileName} {
+      allow read: if isOwnProfileImage(fileName);
+      allow create, update: if isOwnProfileImage(fileName) && isValidImage();
+      allow delete: if isOwnProfileImage(fileName);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

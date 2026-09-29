@@ -1,0 +1,42 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    }
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "rsj-storyverse",
+          "appId": "1:193952779418:android:e00b34dbace7cef9d6a323",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "rsj-storyverse",
+          "configurations": {
+            "android": "1:193952779418:android:e00b34dbace7cef9d6a323",
+            "ios": "1:193952779418:ios:69042b0df9239778d6a323",
+            "macos": "1:193952779418:ios:69042b0df9239778d6a323",
+            "web": "1:193952779418:web:3b4953b91374eabed6a323",
+            "windows": "1:193952779418:web:5fcfdcd9b4a34ad1d6a323"
+          }
+        }
+      }
+    }
+  }
+}

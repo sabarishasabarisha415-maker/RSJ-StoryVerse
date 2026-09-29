@@ -1,0 +1,248 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isEmailAuthenticated() {
+      return request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    function ownsUser(userId) {
+      return isEmailAuthenticated() && request.auth.uid == userId;
+    }
+
+    function validStory() {
+      return request.resource.data.keys().hasOnly([
+            'title',
+            'author',
+            'authorId',
+            'genre',
+            'description',
+            'story',
+            'coverUrl',
+            'coverStoragePath',
+            'status',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'title',
+            'author',
+            'authorId',
+            'genre',
+            'description',
+            'story',
+            'coverUrl',
+            'coverStoragePath',
+            'status',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.title is string
+          && request.resource.data.author is string
+          && request.resource.data.authorId is string
+          && request.resource.data.genre is string
+          && request.resource.data.description is string
+          && request.resource.data.story is string
+          && request.resource.data.coverUrl is string
+          && request.resource.data.coverStoragePath is string
+          && request.resource.data.status in ['draft', 'published']
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 150
+          && request.resource.data.author.size() > 0
+          && request.resource.data.author.size() <= 80
+          && request.resource.data.description.size() <= 2000
+          && request.resource.data.story.size() > 0
+          && request.resource.data.story.size() <= 180000
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validHistory(storyId) {
+      return request.resource.data.keys().hasOnly([
+            'storyId',
+            'title',
+            'author',
+            'genre',
+            'coverUrl',
+            'authorId',
+            'lastReadChapter',
+            'lastReadTime',
+            'progress'
+          ])
+          && request.resource.data.keys().hasAll([
+            'storyId',
+            'title',
+            'author',
+            'genre',
+            'coverUrl',
+            'authorId',
+            'lastReadChapter',
+            'lastReadTime',
+            'progress'
+          ])
+          && request.resource.data.storyId == storyId
+          && request.resource.data.title is string
+          && request.resource.data.author is string
+          && request.resource.data.genre is string
+          && request.resource.data.coverUrl is string
+          && request.resource.data.authorId is string
+          && request.resource.data.lastReadChapter is string
+          && request.resource.data.lastReadTime == request.time
+          && request.resource.data.progress is number;
+    }
+
+    function validFavorite(favoriteId) {
+      return request.resource.data.keys().hasOnly([
+            'uid',
+            'storyId',
+            'title',
+            'author',
+            'genre',
+            'story',
+            'coverUrl',
+            'createdAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'uid',
+            'storyId',
+            'title',
+            'author',
+            'genre',
+            'story',
+            'coverUrl',
+            'createdAt'
+          ])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.storyId is string
+          && request.resource.data.storyId.size() > 0
+          && favoriteId == request.auth.uid + '_' + request.resource.data.storyId
+          && request.resource.data.title is string
+          && request.resource.data.author is string
+          && request.resource.data.genre is string
+          && request.resource.data.story is string
+          && request.resource.data.coverUrl is string
+          && request.resource.data.createdAt == request.time;
+    }
+
+    function canAccessStoryEngagement(storyId) {
+      let storyPath = /databases/$(database)/documents/stories/$(storyId);
+      return isEmailAuthenticated() && exists(storyPath);
+    }
+
+    function validLike(userId) {
+      return request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+          && request.resource.data.keys().hasAll(['uid', 'createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && userId == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+    }
+
+    function validNewComment() {
+      return request.resource.data.keys().hasOnly([
+            'uid',
+            'author',
+            'text',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'uid',
+            'author',
+            'text',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.author is string
+          && request.resource.data.author.size() > 0
+          && request.resource.data.author.size() <= 80
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+    }
+
+    function validCommentUpdate(userId) {
+      return request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['text', 'updatedAt'])
+          && resource.data.uid == request.auth.uid
+          && userId == request.auth.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.author == resource.data.author
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000
+          && request.resource.data.updatedAt == request.time;
+    }
+
+    match /stories/{storyId} {
+      allow get: if isEmailAuthenticated();
+      allow list: if isEmailAuthenticated();
+
+      allow create: if isEmailAuthenticated()
+                    && request.resource.data.authorId == request.auth.uid
+                    && validStory();
+
+      allow update: if isEmailAuthenticated()
+                    && resource.data.authorId == request.auth.uid
+                    && request.resource.data.authorId == resource.data.authorId
+                    && validStory();
+
+      allow delete: if isEmailAuthenticated()
+                    && resource.data.authorId == request.auth.uid;
+
+      match /likes/{userId} {
+        allow read: if canAccessStoryEngagement(storyId);
+        allow create, update: if canAccessStoryEngagement(storyId)
+                              && validLike(userId);
+        allow delete: if canAccessStoryEngagement(storyId)
+                      && userId == request.auth.uid
+                      && resource.data.uid == request.auth.uid;
+      }
+
+      match /comments/{commentId} {
+        allow read: if canAccessStoryEngagement(storyId);
+        allow create: if canAccessStoryEngagement(storyId)
+                      && validNewComment();
+        allow update: if canAccessStoryEngagement(storyId)
+                      && validCommentUpdate(request.auth.uid);
+        allow delete: if canAccessStoryEngagement(storyId)
+                      && resource.data.uid == request.auth.uid;
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if ownsUser(userId);
+      allow create, update: if ownsUser(userId)
+                            && request.resource.data.keys().hasOnly([
+                              'displayName',
+                              'email',
+                              'bio',
+                              'joinDate',
+                              'profileImageUrl',
+                              'updatedAt'
+                            ]);
+      allow delete: if false;
+
+      match /reading_history/{storyId} {
+        allow read, delete: if ownsUser(userId);
+        allow create, update: if ownsUser(userId) && validHistory(storyId);
+      }
+    }
+
+    match /favorites/{favoriteId} {
+      allow read: if isEmailAuthenticated()
+                  && resource.data.uid == request.auth.uid;
+      allow create: if isEmailAuthenticated() && validFavorite(favoriteId);
+      allow update: if isEmailAuthenticated()
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.storyId == resource.data.storyId
+                    && validFavorite(favoriteId);
+      allow delete: if isEmailAuthenticated()
+                    && resource.data.uid == request.auth.uid;
+    }
+  }
+}
